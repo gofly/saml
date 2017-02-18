@@ -13,7 +13,7 @@ import (
 	"regexp"
 	"time"
 
-	"github.com/crewjam/go-xmlsec"
+	"github.com/gofly/go-xmlsec"
 )
 
 type NameIDFormat string

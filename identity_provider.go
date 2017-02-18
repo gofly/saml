@@ -16,7 +16,7 @@ import (
 	"text/template"
 	"time"
 
-	"github.com/crewjam/go-xmlsec"
+	"github.com/gofly/go-xmlsec"
 )
 
 // Session represents a user session. It is returned by the
