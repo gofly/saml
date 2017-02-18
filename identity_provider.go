@@ -413,9 +413,10 @@ func (req *IdpAuthnRequest) MakeAssertion(session *Session) error {
 			Values:       groupMemberAttributeValues,
 		})
 	}
-
+	idStr := fmt.Sprintf("id-%x", randomBytes(20))
+	signatureTemplate.SignedInfo.Reference.URI = fmt.Sprintf("#%s", idStr)
 	req.Assertion = &Assertion{
-		ID:           fmt.Sprintf("id-%x", randomBytes(20)),
+		ID:           idStr,
 		IssueInstant: TimeNow(),
 		Version:      "2.0",
 		Issuer: &Issuer{
@@ -475,7 +476,15 @@ func (req *IdpAuthnRequest) MarshalAssertion() error {
 	}
 
 	buf, err = xmlsec.Sign([]byte(req.IDP.Key),
-		buf, xmlsec.SignatureOptions{})
+		buf, xmlsec.SignatureOptions{
+			XMLID: []xmlsec.XMLIDOption{
+				xmlsec.XMLIDOption{
+					ElementName:      "Assertion",
+					ElementNamespace: "urn:oasis:names:tc:SAML:2.0:assertion",
+					AttributeName:    "ID",
+				},
+			},
+		})
 	if err != nil {
 		return err
 	}
