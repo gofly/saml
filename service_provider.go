@@ -83,8 +83,8 @@ func (sp *ServiceProvider) Metadata() *Metadata {
 	}
 
 	return &Metadata{
-		EntityID:      sp.MetadataURL,
-		ValidUntil:    TimeNow().Add(validDuration),
+		EntityID:   sp.MetadataURL,
+		ValidUntil: TimeNow().Add(validDuration),
 		SPSSODescriptor: &SPSSODescriptor{
 			AuthnRequestsSigned:        false,
 			WantAssertionsSigned:       true,
@@ -220,8 +220,7 @@ func (sp *ServiceProvider) MakeAuthenticationRequest(idpURL string) (*AuthnReque
 		IssueInstant:                TimeNow(),
 		Version:                     "2.0",
 		Issuer: Issuer{
-			Format: "urn:oasis:names:tc:SAML:2.0:nameid-format:entity",
-			Value:  sp.MetadataURL,
+			Value: sp.MetadataURL,
 		},
 		NameIDPolicy: NameIDPolicy{
 			AllowCreate: true,

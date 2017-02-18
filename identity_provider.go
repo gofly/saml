@@ -419,8 +419,7 @@ func (req *IdpAuthnRequest) MakeAssertion(session *Session) error {
 		IssueInstant: TimeNow(),
 		Version:      "2.0",
 		Issuer: &Issuer{
-			Format: "XXX",
-			Value:  req.IDP.Metadata().EntityID,
+			Value: req.IDP.Metadata().EntityID,
 		},
 		Signature: &signatureTemplate,
 		Subject: &Subject{
@@ -481,13 +480,15 @@ func (req *IdpAuthnRequest) MarshalAssertion() error {
 		return err
 	}
 
-	buf, err = xmlsec.Encrypt(getSPEncryptionCert(req.ServiceProviderMetadata),
-		buf, xmlsec.EncryptOptions{})
-	if err != nil {
-		return err
+	encryptionCert := getSPEncryptionCert(req.ServiceProviderMetadata)
+	if encryptionCert != nil {
+		buf, err = xmlsec.Encrypt(encryptionCert, buf, xmlsec.EncryptOptions{})
+		if err != nil {
+			return err
+		}
 	}
 
-	req.AssertionBuffer = buf
+	req.AssertionBuffer = bytes.TrimPrefix(buf, []byte("<?xml version=\"1.0\"?>"))
 	return nil
 }
 
@@ -507,8 +508,7 @@ func (req *IdpAuthnRequest) MakeResponse() error {
 		IssueInstant: TimeNow(),
 		Version:      "2.0",
 		Issuer: &Issuer{
-			Format: "urn:oasis:names:tc:SAML:2.0:nameid-format:entity",
-			Value:  req.IDP.MetadataURL,
+			Value: req.IDP.MetadataURL,
 		},
 		Status: &Status{
 			StatusCode: StatusCode{
@@ -552,7 +552,7 @@ func (req *IdpAuthnRequest) WriteResponse(w http.ResponseWriter) error {
 			RelayState   string
 		}{
 			URL:          req.ACSEndpoint.Location,
-			SAMLResponse: base64.StdEncoding.EncodeToString(responseBuf),
+			SAMLResponse: base64.StdEncoding.EncodeToString(append([]byte(xml.Header), responseBuf...)),
 			RelayState:   req.RelayState,
 		}
 

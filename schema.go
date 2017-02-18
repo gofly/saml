@@ -62,7 +62,6 @@ func (a *AuthnRequest) UnmarshalXML(d *xml.Decoder, start xml.StartElement) erro
 // See http://docs.oasis-open.org/security/saml/v2.0/saml-core-2.0-os.pdf
 type Issuer struct {
 	XMLName xml.Name `xml:"urn:oasis:names:tc:SAML:2.0:assertion Issuer"`
-	Format  string   `xml:",attr"`
 	Value   string   `xml:",chardata"`
 }
 
@@ -79,16 +78,16 @@ type NameIDPolicy struct {
 //
 // See http://docs.oasis-open.org/security/saml/v2.0/saml-core-2.0-os.pdf
 type Response struct {
-	XMLName            xml.Name  `xml:"urn:oasis:names:tc:SAML:2.0:protocol Response"`
-	Destination        string    `xml:",attr"`
-	ID                 string    `xml:",attr"`
-	InResponseTo       string    `xml:",attr"`
-	IssueInstant       time.Time `xml:",attr"`
-	Version            string    `xml:",attr"`
-	Issuer             *Issuer   `xml:"urn:oasis:names:tc:SAML:2.0:assertion Issuer"`
-	Status             *Status   `xml:"urn:oasis:names:tc:SAML:2.0:protocol Status"`
-	EncryptedAssertion *EncryptedAssertion
-	Assertion          *Assertion `xml:"urn:oasis:names:tc:SAML:2.0:assertion Assertion"`
+	XMLName            xml.Name            `xml:"urn:oasis:names:tc:SAML:2.0:protocol Response"`
+	Destination        string              `xml:",attr"`
+	ID                 string              `xml:",attr"`
+	InResponseTo       string              `xml:",attr"`
+	IssueInstant       time.Time           `xml:",attr"`
+	Version            string              `xml:",attr"`
+	Issuer             *Issuer             `xml:"urn:oasis:names:tc:SAML:2.0:assertion Issuer"`
+	Status             *Status             `xml:"urn:oasis:names:tc:SAML:2.0:protocol Status"`
+	EncryptedAssertion *EncryptedAssertion `xml:"urn:oasis:names:tc:SAML:2.0:assertion EncryptedAssertion"`
+	Assertion          *Assertion          `xml:"urn:oasis:names:tc:SAML:2.0:assertion Assertion"`
 }
 
 func (r *Response) MarshalXML(e *xml.Encoder, start xml.StartElement) error {

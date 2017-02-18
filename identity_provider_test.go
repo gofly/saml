@@ -11,8 +11,8 @@ import (
 	"time"
 
 	"github.com/crewjam/go-xmlsec"
-	"github.com/crewjam/saml/testsaml"
 	"github.com/dgrijalva/jwt-go"
+	"github.com/gofly/saml/testsaml"
 	. "gopkg.in/check.v1"
 )
 

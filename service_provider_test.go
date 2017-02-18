@@ -8,8 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/crewjam/saml/testsaml"
-
+	"github.com/gofly/saml/testsaml"
 	. "gopkg.in/check.v1"
 )
 
