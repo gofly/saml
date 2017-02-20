@@ -6,17 +6,18 @@ import (
 	"encoding/base64"
 	"encoding/pem"
 	"encoding/xml"
+	"errors"
 	"fmt"
-	"io"
 	"io/ioutil"
-	"log"
 	"net/http"
-	"net/url"
 	"regexp"
-	"text/template"
 	"time"
 
 	"github.com/gofly/go-xmlsec"
+)
+
+var (
+	ErrServiceProviderNotFound = errors.New("service provider not found")
 )
 
 // Session represents a user session. It is returned by the
@@ -35,17 +36,6 @@ type Session struct {
 	UserCommonName string
 	UserSurname    string
 	UserGivenName  string
-}
-
-// SessionProvider is an interface used by IdentityProvider to determine the
-// Session associated with a request. For an example implementation, see
-// GetSession in the samlidp package.
-type SessionProvider interface {
-	// GetSession returns the remote user session associated with the http.Request.
-	//
-	// If (and only if) the request is not associated with a session then GetSession
-	// must complete the HTTP request and return nil.
-	GetSession(w http.ResponseWriter, r *http.Request, req *IdpAuthnRequest) *Session
 }
 
 // IdentityProvider implements the SAML Identity Provider role (IDP).
@@ -68,7 +58,12 @@ type IdentityProvider struct {
 	MetadataURL      string
 	SSOURL           string
 	ServiceProviders map[string]*Metadata
-	SessionProvider  SessionProvider
+}
+
+type SSOResponse struct {
+	URL          string
+	SAMLResponse string
+	RelayState   string
 }
 
 // Metadata returns the metadata structure for this identity provider.
@@ -119,124 +114,6 @@ func (idp *IdentityProvider) Metadata() *Metadata {
 				},
 			},
 		},
-	}
-}
-
-// Handler returns an http.Handler that serves the metadata and SSO
-// URLs
-func (idp *IdentityProvider) Handler() http.Handler {
-	mux := http.NewServeMux()
-
-	metadataURL, err := url.Parse(idp.MetadataURL)
-	if err != nil {
-		panic(err)
-	}
-	mux.HandleFunc(metadataURL.Path, idp.ServeMetadata)
-
-	ssoURL, err := url.Parse(idp.SSOURL)
-	if err != nil {
-		panic(err)
-	}
-	mux.HandleFunc(ssoURL.Path, idp.ServeSSO)
-	return mux
-}
-
-// ServeMetadata is an http.HandlerFunc that serves the IDP metadata
-func (idp *IdentityProvider) ServeMetadata(w http.ResponseWriter, r *http.Request) {
-	buf, _ := xml.MarshalIndent(idp.Metadata(), "", "  ")
-	w.Header().Set("Content-Type", "application/samlmetadata+xml")
-	w.Write(buf)
-}
-
-// ServeSSO handles SAML auth requests.
-//
-// When it gets a request for a user that does not have a valid session,
-// then it prompts the user via XXX.
-//
-// If the session already exists, then it produces a SAML assertion and
-// returns an HTTP response according to the specified binding. The
-// only supported binding right now is the HTTP-POST binding which returns
-// an HTML form in the appropriate format with Javascript to automatically
-// submit that form the to service provider's Assertion Customer Service
-// endpoint.
-//
-// If the SAML request is invalid or cannot be verified a simple StatusBadRequest
-// response is sent.
-//
-// If the assertion cannot be created or returned, a StatusInternalServerError
-// response is sent.
-func (idp *IdentityProvider) ServeSSO(w http.ResponseWriter, r *http.Request) {
-	req, err := NewIdpAuthnRequest(idp, r)
-	if err != nil {
-		log.Printf("failed to parse request: %s", err)
-		http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
-		return
-	}
-
-	if err := req.Validate(); err != nil {
-		log.Printf("failed to validate request: %s", err)
-		http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
-		return
-	}
-
-	// TODO(ross): we must check that the request ID has not been previously
-	//   issued.
-
-	session := idp.SessionProvider.GetSession(w, r, req)
-	if session == nil {
-		return
-	}
-
-	// we have a valid session and must make a SAML assertion
-	if err := req.MakeAssertion(session); err != nil {
-		log.Printf("failed to make assertion: %s", err)
-		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-		return
-	}
-	if err := req.WriteResponse(w); err != nil {
-		log.Printf("failed to write response: %s", err)
-		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-		return
-	}
-}
-
-// ServeIDPInitiated handes an IDP-initiated authorization request. Requests of this
-// type require us to know a registered service provider and (optionally) the RelayState
-// that will be passed to the application.
-func (idp *IdentityProvider) ServeIDPInitiated(w http.ResponseWriter, r *http.Request, serviceProviderID string, relayState string) {
-	req := &IdpAuthnRequest{
-		IDP:         idp,
-		HTTPRequest: r,
-		RelayState:  relayState,
-	}
-
-	session := idp.SessionProvider.GetSession(w, r, req)
-	if session == nil {
-		return
-	}
-
-	var ok bool
-	req.ServiceProviderMetadata, ok = idp.ServiceProviders[serviceProviderID]
-	if !ok {
-		log.Printf("cannot find service provider: %s", serviceProviderID)
-		http.Error(w, http.StatusText(http.StatusNotFound), http.StatusNotFound)
-		return
-	}
-
-	for _, endpoint := range req.ServiceProviderMetadata.SPSSODescriptor.AssertionConsumerService {
-		req.ACSEndpoint = &endpoint
-		break
-	}
-
-	if err := req.MakeAssertion(session); err != nil {
-		log.Printf("failed to make assertion: %s", err)
-		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-		return
-	}
-	if err := req.WriteResponse(w); err != nil {
-		log.Printf("failed to write response: %s", err)
-		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-		return
 	}
 }
 
@@ -531,54 +408,37 @@ func (req *IdpAuthnRequest) MakeResponse() error {
 	return nil
 }
 
-// WriteResponse writes the `Response` to the http.ResponseWriter. If
-// `Response` is not already set, it calls MakeResponse to produce it.
-func (req *IdpAuthnRequest) WriteResponse(w http.ResponseWriter) error {
+// GetSSOResponse get the `SSOResponse`.
+// If `Response` is not already set, it calls MakeResponse to produce it.
+func (req *IdpAuthnRequest) GetSSOResponse(session *Session) (*SSOResponse, error) {
+	// we have a valid session and must make a SAML assertion
+	if err := req.MakeAssertion(session); err != nil {
+		err = fmt.Errorf("failed to make assertion: %s", err)
+		return nil, err
+	}
+
 	if req.Response == nil {
 		if err := req.MakeResponse(); err != nil {
-			return err
+			return nil, err
 		}
 	}
 	responseBuf, err := xml.Marshal(req.Response)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	// the only supported binding is the HTTP-POST binding
-	switch req.ACSEndpoint.Binding {
-	case HTTPPostBinding:
-		tmpl := template.Must(template.New("saml-post-form").Parse(`<html>` +
-			`<form method="post" action="{{.URL}}" id="SAMLResponseForm">` +
-			`<input type="hidden" name="SAMLResponse" value="{{.SAMLResponse}}" />` +
-			`<input type="hidden" name="RelayState" value="{{.RelayState}}" />` +
-			`<input type="submit" value="Continue" />` +
-			`</form>` +
-			`<script>document.getElementById('SAMLResponseForm').submit();</script>` +
-			`</html>`))
-		data := struct {
-			URL          string
-			SAMLResponse string
-			RelayState   string
-		}{
-			URL:          req.ACSEndpoint.Location,
-			SAMLResponse: base64.StdEncoding.EncodeToString(append([]byte(xml.Header), responseBuf...)),
-			RelayState:   req.RelayState,
-		}
-
-		buf := bytes.NewBuffer(nil)
-		if err := tmpl.Execute(buf, data); err != nil {
-			return err
-		}
-		if _, err := io.Copy(w, buf); err != nil {
-			return err
-		}
-		return nil
-
-	default:
-		return fmt.Errorf("%s: unsupported binding %s",
+	if req.ACSEndpoint.Binding != HTTPPostBinding {
+		return nil, fmt.Errorf("%s: unsupported binding %s",
 			req.ServiceProviderMetadata.EntityID,
 			req.ACSEndpoint.Binding)
 	}
+
+	return &SSOResponse{
+		URL:          req.ACSEndpoint.Location,
+		SAMLResponse: base64.StdEncoding.EncodeToString(append([]byte(xml.Header), responseBuf...)),
+		RelayState:   req.RelayState,
+	}, nil
 }
 
 // getSPEncryptionCert returns the certificate which we can use to encrypt things
