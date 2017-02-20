@@ -60,6 +60,7 @@ func (m *Metadata) UnmarshalXML(d *xml.Decoder, start xml.StartElement) error {
 
 // KeyDescriptor represents the XMLSEC object of the same name
 type KeyDescriptor struct {
+	XMLName           xml.Name           `xml:"urn:oasis:names:tc:SAML:2.0:metadata KeyDescriptor"`
 	Use               string             `xml:"use,attr"`
 	KeyInfo           KeyInfo            `xml:"http://www.w3.org/2000/09/xmldsig# KeyInfo"`
 	EncryptionMethods []EncryptionMethod `xml:"EncryptionMethod"`
@@ -102,7 +103,7 @@ type SPSSODescriptor struct {
 	AuthnRequestsSigned        bool              `xml:",attr"`
 	WantAssertionsSigned       bool              `xml:",attr"`
 	ProtocolSupportEnumeration string            `xml:"protocolSupportEnumeration,attr"`
-	KeyDescriptor              []KeyDescriptor   `xml:"KeyDescriptor"`
+	KeyDescriptor              []KeyDescriptor   `xml:"urn:oasis:names:tc:SAML:2.0:metadata KeyDescriptor"`
 	ArtifactResolutionService  []IndexedEndpoint `xml:"ArtifactResolutionService"`
 	SingleLogoutService        []Endpoint        `xml:"SingleLogoutService"`
 	ManageNameIDService        []Endpoint
@@ -118,7 +119,7 @@ type IDPSSODescriptor struct {
 	XMLName                    xml.Name        `xml:"urn:oasis:names:tc:SAML:2.0:metadata IDPSSODescriptor"`
 	WantAuthnRequestsSigned    bool            `xml:",attr"`
 	ProtocolSupportEnumeration string          `xml:"protocolSupportEnumeration,attr"`
-	KeyDescriptor              []KeyDescriptor `xml:"KeyDescriptor"`
+	KeyDescriptor              []KeyDescriptor `xml:"urn:oasis:names:tc:SAML:2.0:metadata KeyDescriptor"`
 	NameIDFormat               []string        `xml:"NameIDFormat"`
 	SingleSignOnService        []Endpoint      `xml:"SingleSignOnService"`
 }
