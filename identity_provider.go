@@ -18,6 +18,7 @@ import (
 
 var (
 	ErrServiceProviderNotFound = errors.New("service provider not found")
+	ErrRequestExpired          = errors.New("request is expired")
 )
 
 // Session represents a user session. It is returned by the
@@ -181,8 +182,7 @@ func (req *IdpAuthnRequest) Validate() error {
 			req.IDP.SSOURL, req.Request.Destination)
 	}
 	if req.Request.IssueInstant.Add(MaxIssueDelay).Before(TimeNow()) {
-		return fmt.Errorf("request expired at %s",
-			req.Request.IssueInstant.Add(MaxIssueDelay))
+		return ErrRequestExpired
 	}
 	if req.Request.Version != "2.0" {
 		return fmt.Errorf("expected SAML request version 2, got %q", req.Request.Version)
@@ -191,8 +191,7 @@ func (req *IdpAuthnRequest) Validate() error {
 	// find the service provider
 	serviceProvider, serviceProviderFound := req.IDP.ServiceProviders[req.Request.Issuer.Value]
 	if !serviceProviderFound {
-		return fmt.Errorf("cannot handle request from unknown service provider %s",
-			req.Request.Issuer.Value)
+		return ErrServiceProviderNotFound
 	}
 	req.ServiceProviderMetadata = serviceProvider
 
