@@ -198,7 +198,7 @@ func (req *IdpAuthnRequest) Validate() error {
 	// Check that the ACS URL matches an ACS endpoint in the SP metadata.
 	acsValid := false
 	for _, acsEndpoint := range serviceProvider.SPSSODescriptor.AssertionConsumerService {
-		if req.Request.AssertionConsumerServiceURL == acsEndpoint.Location {
+		if req.Request.AssertionConsumerServiceURL == "" || req.Request.AssertionConsumerServiceURL == acsEndpoint.Location {
 			req.ACSEndpoint = &acsEndpoint
 			acsValid = true
 			break
