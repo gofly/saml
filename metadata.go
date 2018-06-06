@@ -34,11 +34,13 @@ type Metadata struct {
 func (m *Metadata) MarshalXML(e *xml.Encoder, start xml.StartElement) error {
 	type Alias Metadata
 	aux := &struct {
-		ValidUntil RelaxedTime `xml:"validUntil,attr"`
+		ValidUntil    RelaxedTime `xml:"validUntil,attr"`
+		CacheDuration Duration    `xml:"cacheDuration,attr,omitempty"`
 		*Alias
 	}{
-		ValidUntil: RelaxedTime(m.ValidUntil),
-		Alias:      (*Alias)(m),
+		ValidUntil:    RelaxedTime(m.ValidUntil),
+		CacheDuration: Duration(m.CacheDuration),
+		Alias:         (*Alias)(m),
 	}
 	return e.Encode(aux)
 }
@@ -46,7 +48,8 @@ func (m *Metadata) MarshalXML(e *xml.Encoder, start xml.StartElement) error {
 func (m *Metadata) UnmarshalXML(d *xml.Decoder, start xml.StartElement) error {
 	type Alias Metadata
 	aux := &struct {
-		ValidUntil RelaxedTime `xml:"validUntil,attr"`
+		ValidUntil    RelaxedTime `xml:"validUntil,attr"`
+		CacheDuration Duration    `xml:"cacheDuration,attr,omitempty"`
 		*Alias
 	}{
 		Alias: (*Alias)(m),
@@ -55,6 +58,7 @@ func (m *Metadata) UnmarshalXML(d *xml.Decoder, start xml.StartElement) error {
 		return err
 	}
 	m.ValidUntil = time.Time(aux.ValidUntil)
+	m.CacheDuration = time.Duration(aux.CacheDuration)
 	return nil
 }
 
